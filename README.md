@@ -1,5 +1,7 @@
 # pygame-projectiles
+## info
 some classes and utility functions to create projectiles in pygame
+i might eventually upload this as an installable module to pip but i haven't yet got around to finding out how
 
 ## init
 use `proj.init()` to init projectiles. you need to give these arguments in this order:
