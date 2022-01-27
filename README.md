@@ -9,6 +9,7 @@ use `proj.init()` to init projectiles. you need to give these arguments in this 
  4. bullet image, the image you want a standard bullet to have, scaled to whatever size you want it
  5. laser image, same as above but for the laser subclass
  6. missile image, the same again but this time for the missile class
+ 7. play shoot noise, True if you want a sound to be played when you fire, False if not
 
 ## classes
  - gun, takes inputs and creates necessary projectiles
