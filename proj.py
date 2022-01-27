@@ -1,7 +1,32 @@
+### IMPORT STATEMENTS
 import pygame, pygame.math as pymaths, random, math as maths
 from time import time as current_time
 
 
+### GLOABL VARIABLES
+player = None
+screen_size = (0, 0)
+target_group = None
+bullet_image = None
+laser_image = None
+missile_image = None
+play_shoot_noise = False
+
+
+### SET UP
+# the init function to get all the information I need from the other file
+def init(_player, _screen_size, _missile_target_group, _bullet_image, _laser_image, _missile_image, _play_shoot_noise):
+    global player, screen_size, target_group, bullet_image, laser_image, missile_image, play_shoot_noise
+    player = _player
+    screen_size = _screen_size
+    target_group = _missile_target_group
+    bullet_image = _bullet_image
+    laser_image = _laser_image
+    missile_image = _missile_image
+    play_shoot_noise = _play_shoot_noise
+
+
+### UTILITY FUNCTIONS
 # round each element of a vector up
 def round_vector(vector):
     # actually round the elements
@@ -23,6 +48,29 @@ def find_vector_angle(vector):
     return angle
 
 
+### OTHER FUNCTIONS
+# function to create a projectile
+def create_bullet(proj_type, gun):
+    wait_time = 0.5
+    if gun.last_fire >= wait_time:
+        if proj_type == "bullet":
+            projectile = Bullet()
+            wait_time = 0.5
+        elif proj_type == "laser":
+            projectile = Laser()
+            wait_time = 0.5
+        else:
+            projectile = HomingMissile()
+            wait_time = 4
+
+
+# play the noise when you fire
+def shoot():
+    sound_obj = pygame.mixer.Sound('shoot_noise.wav')
+    sound_obj.play()
+
+
+### CLASSES
 # gun class
 class Gun(pygame.sprite.Sprite):
     def __init__(self, _image, _player):
@@ -37,12 +85,19 @@ class Gun(pygame.sprite.Sprite):
         # 0 is not firing, 1 is firing bullets, 2 lasers and 3 missiles
         self.fire = 0
 
+        # holds time when last projectile was fired so that there will be gaps in between shots
+        self.last_fire = 0
+
     def update(self, _keys):
+        global play_shoot_noise
         # update the position of the gun
         self.rect.center = self.parent.rect.center
 
         # if we need to fire
         if self.fire > 0:
+            # sets the time a projectile was last fired to now
+            self.last_fire = current_time()
+
             # depending on what we're firing, create projtype and give it a word that can be passed to where the proj
             # is created, so we know which type to create
             if self.fire == 2:
@@ -52,9 +107,10 @@ class Gun(pygame.sprite.Sprite):
             else:
                 projtype = "bullet"
             # actually create it
-            createbullet(projtype)
-            # play a sound
-            shoot_noise()
+            createbullet(projtype, self)
+            # play a sound if we really need to
+            if play_shoot_noise:
+                shoot_noise()
 
         # tkae keyboard input
         if keys[pygame.K_RETURN]:
@@ -72,14 +128,15 @@ class Gun(pygame.sprite.Sprite):
 
 # bullet class
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, _image, _player, _screen_size: tuple):
+    def __init__(self):
+        global bullet_image, player, screen_size
         pygame.sprite.Sprite.__init__(self)
 
         # set the player, so we can have a look at its attributes
-        self.player = _player
+        self.player = player
 
         # set up the image and the rect
-        self.image = _image
+        self.image = bullet_image
         self.image = pygame.transform.rotate(self.image, self.player.angle)
         self.rect = self.image.get_rect(center=self.player.rect.center)
 
@@ -87,7 +144,7 @@ class Bullet(pygame.sprite.Sprite):
         self.unit = -player.velocity.normalize() * 32
 
         # get a tuple with the dimensions of the screen
-        self.screen_size = _screen_size
+        self.screen_size = screen_size
 
     def update(self):
         # slow it down gradually
@@ -105,9 +162,15 @@ class Bullet(pygame.sprite.Sprite):
 
 # laser subclass of bullet
 class Laser(Bullet):
-    def __init__(self, _image, _player, _screen_size: tuple):
+    def __init__(self):
+        global laser_image
         # actually initialise it
-        super().__init__(_image, _player, _screen_size)
+        super().__init__()
+
+        # re-setting up the image for the laser so that not everything looks like a bullet
+        self.image = laser_image
+        self.image = pygame.transform.rotate(self.image, self.player.angle)
+        self.rect = self.image.get_rect(center=self.player.rect.center)
 
         # make it a little faster
         # unnecessary note: I wanted to add "bit" after "little" but apparently it's better to "remove redundancy"
@@ -117,17 +180,18 @@ class Laser(Bullet):
 
 # homing missile class
 class HomingMissile(pygame.sprite.Sprite):
-    def __init__(self, _image, _player, _target_group, _screen_size: tuple):
+    def __init__(self):
+        global missile_image, player, target_group, screen_size
         pygame.sprite.Sprite.__init__(self)
 
         # get the player so we can use its attributes
-        self.player = _player
+        self.player = player
 
         # set the screen size so we can use it later
-        self.screen_size = _screen_size
+        self.screen_size = screen_size
 
         # set the og image (required to rotate it without crashing)
-        self.og_image = _image
+        self.og_image = image
         # flip the original image because otherwise it's the wrong way around
         self.og_image = pygame.transform.flip(self.og_image, False, True)
         # set the image we will actually blit and the rect
@@ -142,7 +206,7 @@ class HomingMissile(pygame.sprite.Sprite):
         self.birthday = current_time()
 
         # get an array of all the targets it could follow
-        self.viable_targets = [t for t in _target_group if t.inLight]
+        self.viable_targets = [t for t in target_group if t.inRange]
         # choose one of the targets if there is some targets to choose from
         if self.viable_targets:
             # then select a target from the array
